@@ -184,6 +184,139 @@ def show_error(parent, title: str, message: str):
 
 
 # =============================================================
+# WIDGET DO MAPA (desenho via QPainter)
+# =============================================================
+
+class CityGrid(QWidget):
+    def __init__(self, on_left_click, on_right_click):
+        super().__init__()
+        self._on_left   = on_left_click
+        self._on_right  = on_right_click
+        self.grid_state = [[None] * SIZE for _ in range(SIZE)]
+        self.hovered    = None
+
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(SIZE * CELL, SIZE * CELL)
+        self.setMouseTracking(True)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+    # --- Geometria dinâmica ---
+    # O grid é sempre quadrado e centralizado dentro do widget,
+    # independente de o frame ser mais largo ou mais alto.
+
+    @property
+    def cs(self) -> int:
+        """Tamanho de cada célula, recalculado a cada resize."""
+        return min(self.width(), self.height()) // SIZE
+
+    @property
+    def ox(self) -> int:
+        """Offset horizontal para centralizar o grid no widget."""
+        return (self.width()  - self.cs * SIZE) // 2
+
+    @property
+    def oy(self) -> int:
+        """Offset vertical para centralizar o grid no widget."""
+        return (self.height() - self.cs * SIZE) // 2
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update()
+
+    def set_state(self, state):
+        self.grid_state = state
+        self.update()
+
+    def _cell(self, pos):
+        cs = self.cs
+        x = pos.x() - self.ox
+        y = pos.y() - self.oy
+        col, row = x // cs, y // cs
+        if 0 <= row < SIZE and 0 <= col < SIZE:
+            return row, col
+        return None, None
+
+    def mousePressEvent(self, event):
+        row, col = self._cell(event.pos())
+        if row is None:
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._on_left(row, col)
+        elif event.button() == Qt.MouseButton.RightButton:
+            self._on_right(row, col)
+
+    def mouseMoveEvent(self, event):
+        rc = self._cell(event.pos())
+        if rc != self.hovered:
+            self.hovered = rc
+            self.update()
+
+    def leaveEvent(self, event):
+        self.hovered = None
+        self.update()
+
+    def paintEvent(self, _event):
+        cs, ox, oy = self.cs, self.ox, self.oy
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        for row in range(SIZE):
+            for col in range(SIZE):
+                self._draw_cell(painter, row, col, cs, ox, oy)
+        if self.hovered and self.hovered[0] is not None:
+            row, col = self.hovered
+            empty = self.grid_state[row][col] is None
+            self._draw_hover(painter, row, col, cs, ox, oy, ACCENT if empty else RED)
+
+    def _draw_cell(self, painter, row, col, cs, ox, oy):
+        x1 = ox + col * cs + 2
+        y1 = oy + row * cs + 2
+        w  = cs - 4
+        h  = cs - 4
+        cell = self.grid_state[row][col]
+
+        if cell:
+            info = STRUCTURES.get(cell["type"],
+                                  {"emoji": "?", "color": "#EEE", "border": "#999"})
+            painter.setBrush(QBrush(QColor(info["color"])))
+            painter.setPen(QPen(QColor(info["border"]), 2))
+            painter.drawRect(x1, y1, w, h)
+
+            font = QFont()
+            font.setPointSize(max(8, cs // 4))
+            painter.setFont(font)
+            painter.setPen(QPen(QColor("#000000")))
+            painter.drawText(
+                QRect(x1, y1, w, h - cs // 3),
+                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+                info["emoji"]
+            )
+
+            font.setPointSize(max(5, cs // 9))
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QPen(QColor("#374151")))
+            painter.drawText(QRect(x1, y1 + h - cs // 3, w, cs // 5),
+                             Qt.AlignmentFlag.AlignCenter, cell["type"])
+
+            font.setPointSize(max(4, cs // 11))
+            font.setBold(False)
+            painter.setFont(font)
+            painter.setPen(QPen(QColor("#6B7280")))
+            painter.drawText(QRect(x1, y1 + h - cs // 6, w, cs // 6),
+                             Qt.AlignmentFlag.AlignCenter, cell["author"][:10])
+        else:
+            bg = QColor(GRID_EVEN) if (row + col) % 2 == 0 else QColor(GRID_ODD)
+            painter.setBrush(QBrush(bg))
+            painter.setPen(QPen(QColor(GRID_BORD), 1))
+            painter.drawRect(x1, y1, w, h)
+
+    def _draw_hover(self, painter, row, col, cs, ox, oy, color):
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor(color), 3))
+        painter.drawRect(ox + col * cs + 2, oy + row * cs + 2, cs - 4, cs - 4)
+
+
+# =============================================================
 # JANELA PRINCIPAL
 # =============================================================
 
@@ -281,3 +414,27 @@ class MainWindow(QMainWindow):
         line.setFixedHeight(1)
         line.setStyleSheet(f"background-color: {DIVIDER}; border: none;")
         return line
+    
+    # =========================================================
+    # EVENTOS DO USUÁRIO
+    # =========================================================
+
+    def _on_left_click(self, row, col):
+        cell = self.grid_state[row][col]
+        if cell is not None:
+            info = STRUCTURES.get(cell["type"], {})
+            show_info(
+                self, "Posição ocupada",
+                f"{info.get('emoji', '')} {cell['type']}\n"
+                f"Alocado por: {cell['author']} às {cell['time']}"
+            )
+            return
+        self.last_action = {"op": "PLACE", "row": row, "col": col,
+                            "structure": self.selected_struct}
+        self.net.send(protocol.create_place(row, col, self.selected_struct, self.author))
+
+    def _on_right_click(self, row, col):
+        if self.grid_state[row][col] is None:
+            return
+        self.last_action = {"op": "REMOVE", "row": row, "col": col}
+        self.net.send(protocol.create_remove(row, col))
