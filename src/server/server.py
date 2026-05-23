@@ -1,7 +1,7 @@
 import socket
 import threading
-from .state_manager import StateManager
-from .client_handler import ClientHandler
+from state_manager import StateManager
+from client_handler import ClientHandler
 
 HOST = "0.0.0.0"
 PORT = 5000

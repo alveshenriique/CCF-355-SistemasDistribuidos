@@ -1,7 +1,7 @@
 import sqlite3
 import threading
 import time
-from .models.structure import Structure
+from models.structure import Structure
 
 DB_PATH = "cidade.db"
 
