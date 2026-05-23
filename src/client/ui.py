@@ -400,6 +400,104 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.city_grid)
         return frame
 
+    def _make_panel(self):
+        panel = QFrame()
+        panel.setFixedWidth(270)
+        panel.setStyleSheet(f"background-color: {BG_PANEL}; border-radius: 6px;")
+
+        lay = QVBoxLayout(panel)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        # Jogador
+        self._section(lay, "JOGADOR")
+        name_lbl = QLabel(self.author)
+        name_lbl.setFont(QFont("Helvetica", 16, QFont.Weight.Bold))
+        name_lbl.setStyleSheet(
+            f"color: {TEXT_DARK}; background: transparent; padding: 2px 16px 10px 16px;"
+        )
+        lay.addWidget(name_lbl)
+        lay.addWidget(self._line())
+
+        # Seletor de estrutura (botões-card)
+        self._section(lay, "ESTRUTURA")
+        self._btn_group = QButtonGroup()
+        self._btn_group.setExclusive(True)
+        structs_w = QWidget()
+        structs_w.setStyleSheet("background: transparent;")
+        structs_lay = QVBoxLayout(structs_w)
+        structs_lay.setContentsMargins(10, 4, 10, 8)
+        structs_lay.setSpacing(4)
+
+        for i, name in enumerate(STRUCT_NAMES):
+            info = STRUCTURES[name]
+            btn = QPushButton(f"  {info['emoji']}   {name}")
+            btn.setCheckable(True)
+            btn.setChecked(i == 0)
+            btn.setFont(QFont("Helvetica", 11))
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.setFixedHeight(36)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    text-align: left;
+                    padding: 0px 12px;
+                    border-radius: 6px;
+                    border: 2px solid transparent;
+                    background-color: {BTN_IDLE};
+                    color: {TEXT_DARK};
+                }}
+                QPushButton:checked {{
+                    background-color: {info['color']};
+                    border: 2px solid {info['border']};
+                    font-weight: bold;
+                    color: {TEXT_DARK};
+                }}
+                QPushButton:hover:!checked {{
+                    background-color: #DDD9D1;
+                }}
+            """)
+            btn.toggled.connect(
+                lambda checked, n=name: setattr(self, "selected_struct", n) if checked else None
+            )
+            self._btn_group.addButton(btn, i)
+            structs_lay.addWidget(btn)
+
+        lay.addWidget(structs_w)
+        lay.addWidget(self._line())
+
+        # Como jogar
+        self._section(lay, "COMO JOGAR")
+        inst = QLabel("  Clique esquerdo  →  alocar\n  Clique direito     →  remover")
+        inst.setFont(QFont("Helvetica", 10))
+        inst.setStyleSheet(
+            f"color: {TEXT_SEC}; background: transparent; padding: 2px 16px 10px 16px;"
+        )
+        lay.addWidget(inst)
+        lay.addWidget(self._line())
+
+        # Usuários online
+        self._section(lay, "ONLINE")
+        self._users_w = QWidget()
+        self._users_w.setStyleSheet("background: transparent;")
+        self._users_lay = QVBoxLayout(self._users_w)
+        self._users_lay.setContentsMargins(16, 2, 16, 10)
+        self._users_lay.setSpacing(4)
+        lay.addWidget(self._users_w)
+        lay.addWidget(self._line())
+
+        # Log
+        self._section(lay, "ATIVIDADE RECENTE")
+        self._log = QTextEdit()
+        self._log.setReadOnly(True)
+        self._log.setFont(QFont("Courier", 9))
+        self._log.setStyleSheet(
+            "background-color: #E8E4DC; color: #2D3748;"
+            "border: none; padding: 8px;"
+        )
+        lay.addWidget(self._log)
+
+        return panel
+
     def _section(self, layout, text):
             lbl = QLabel(text)
             lbl.setFont(QFont("Helvetica", 9, QFont.Weight.Bold))
@@ -438,3 +536,82 @@ class MainWindow(QMainWindow):
             return
         self.last_action = {"op": "REMOVE", "row": row, "col": col}
         self.net.send(protocol.create_remove(row, col))
+
+    # =========================================================
+    # CALLBACKS DE REDE
+    # =========================================================
+
+    def _on_state_updated(self, state):
+        self.grid_state = state
+        self.city_grid.set_state(state)
+
+    def _on_users_updated(self, data):
+        count     = data.get("count", 0)
+        usernames = data.get("usernames", [])
+        self.badge.setText(f"👥  {count} online")
+
+        while self._users_lay.count():
+            item = self._users_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for name in usernames:
+            row_w = QWidget()
+            row_w.setStyleSheet("background: transparent;")
+            rl = QHBoxLayout(row_w)
+            rl.setContentsMargins(0, 0, 0, 0)
+            rl.setSpacing(8)
+
+            dot = QLabel("●")
+            dot.setStyleSheet(
+                f"color: {_user_color(name)}; background: transparent; font-size: 13px;"
+            )
+            rl.addWidget(dot)
+
+            nm = QLabel(name)
+            nm.setFont(QFont("Helvetica", 11))
+            nm.setStyleSheet(f"color: {TEXT_DARK}; background: transparent;")
+            rl.addWidget(nm)
+            rl.addStretch()
+            self._users_lay.addWidget(row_w)
+
+    def _on_response(self, msg):
+        if not msg["success"]:
+            show_error(self, "Erro", msg["message"])
+            return
+        if not self.last_action:
+            return
+        act = self.last_action
+        if act["op"] == "PLACE":
+            info = STRUCTURES.get(act["structure"], {})
+            self._add_log(
+                f"{info.get('emoji', '')} {self.author} → "
+                f"{act['structure']} em ({act['row']},{act['col']})"
+            )
+        else:
+            self._add_log(f"🗑️  {self.author} removeu ({act['row']},{act['col']})")
+
+    def _add_log(self, text):
+        self._log.insertHtml(f"<p style='margin:0; padding:2px 0'>{text}</p>")
+
+
+# =============================================================
+# MAIN
+# =============================================================
+
+def main():
+    app = QApplication(sys.argv)
+
+    dialog = LoginDialog()
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
+
+    author = dialog.get_name() or "Anônimo"
+
+    window = MainWindow(author)
+    window.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
