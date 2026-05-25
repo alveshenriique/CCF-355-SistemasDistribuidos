@@ -6,7 +6,7 @@ from models.structure import Structure
 DB_PATH = "cidade.db"
 
 class StateManager:
-    def __init__(self, size=10):
+    def __init__(self, size=7):
         self.size = size
         self.lock = threading.Lock()
         self._init_db()
@@ -27,7 +27,7 @@ class StateManager:
             conn.commit()
 
     def _load_grid(self):
-        """Carrega o estado persistido no banco para a memória ao iniciar"""
+        # Carrega o estado persistido no banco para a memória ao iniciar
         grid = [[None] * self.size for _ in range(self.size)]
         with sqlite3.connect(DB_PATH) as conn:
             rows = conn.execute(

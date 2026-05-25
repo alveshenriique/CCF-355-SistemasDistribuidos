@@ -15,7 +15,7 @@ def start_server():
 
     print(f"[SERVIDOR] Cidade Colaborativa rodando em {HOST}:{PORT}")
 
-    state_manager = StateManager()
+    state_manager = StateManager(size=7)
     clients = []
 
     while True:

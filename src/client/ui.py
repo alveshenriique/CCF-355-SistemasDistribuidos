@@ -14,10 +14,10 @@ import protocol
 
 HOST = "127.0.0.1"
 PORT = 5000
-SIZE = 10
+SIZE = 7
 CELL = 65   # pixels por célula
 
-# --- Paleta ---
+# Paleta
 BG_MAIN    = "#EDE9E0"
 BG_PANEL   = "#F4F1EB"
 BG_HEADER  = "#1A202C"
@@ -28,7 +28,7 @@ ACCENT     = "#3B82F6"
 RED        = "#EF4444"
 TEXT_DARK  = "#1A202C"
 TEXT_LIGHT = "#FFFFFF"
-TEXT_SEC   = "#4A5568"   # labels de seção — mais escuro que antes
+TEXT_SEC   = "#4A5568"   
 TEXT_MUTED = "#718096"
 DIVIDER    = "#D1CBC0"
 BTN_IDLE   = "#E8E4DC"
@@ -55,14 +55,13 @@ def _user_color(name: str) -> str:
     return f"#{r:02X}{g:02X}{b:02X}"
 
 
-# =============================================================
-# DIALOG DE LOGIN (maior e estilizado)
-# =============================================================
+
+# Dialog de Login
 
 class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Cidade Colaborativa")
+        self.setWindowTitle("GridCity")
         self.setFixedSize(460, 260)
         self.setStyleSheet(f"background-color: {BG_MAIN};")
 
@@ -71,7 +70,7 @@ class LoginDialog(QDialog):
         lay.setSpacing(14)
 
         # título
-        title = QLabel("🏙️  Bem-vindo à Cidade Colaborativa")
+        title = QLabel("🏙️  Bem-vindo ao GridCity")
         title.setFont(QFont("Helvetica", 15, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {TEXT_DARK}; background: transparent;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -118,12 +117,9 @@ class LoginDialog(QDialog):
         return self.field.text().strip()
 
 
-# =============================================================
-# DIALOG GENÉRICO ESTILIZADO
-# =============================================================
+# Dialog de aviso/erro estilizado
 
 class StyledDialog(QDialog):
-    """Dialog de aviso/erro que segue o visual da aplicação."""
 
     def __init__(self, parent, title: str, message: str, is_error: bool = False):
         super().__init__(parent)
@@ -183,9 +179,7 @@ def show_error(parent, title: str, message: str):
     StyledDialog(parent, title, message, is_error=True).exec()
 
 
-# =============================================================
-# WIDGET DO MAPA (desenho via QPainter)
-# =============================================================
+# Widget do mapa
 
 class CityGrid(QWidget):
     def __init__(self, on_left_click, on_right_click):
@@ -200,10 +194,7 @@ class CityGrid(QWidget):
         self.setMouseTracking(True)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-    # --- Geometria dinâmica ---
-    # O grid é sempre quadrado e centralizado dentro do widget,
-    # independente de o frame ser mais largo ou mais alto.
-
+    # Geometria dinâmica
     @property
     def cs(self) -> int:
         """Tamanho de cada célula, recalculado a cada resize."""
@@ -282,28 +273,29 @@ class CityGrid(QWidget):
             painter.drawRect(x1, y1, w, h)
 
             font = QFont()
-            font.setPointSize(max(8, cs // 4))
+            font.setPointSize(max(12, cs // 3))
             painter.setFont(font)
             painter.setPen(QPen(QColor("#000000")))
             painter.drawText(
-                QRect(x1, y1, w, h - cs // 3),
+                QRect(x1, y1, w, h * 3 // 5),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
                 info["emoji"]
             )
 
-            font.setPointSize(max(5, cs // 9))
+            font.setPointSize(max(9, cs // 7))
             font.setBold(True)
             painter.setFont(font)
             painter.setPen(QPen(QColor("#374151")))
-            painter.drawText(QRect(x1, y1 + h - cs // 3, w, cs // 5),
+            painter.drawText(QRect(x1, y1 + h * 3 // 5, w, h // 5),
                              Qt.AlignmentFlag.AlignCenter, cell["type"])
 
-            font.setPointSize(max(4, cs // 11))
+            font.setPointSize(max(8, cs // 8))
             font.setBold(False)
             painter.setFont(font)
             painter.setPen(QPen(QColor("#6B7280")))
-            painter.drawText(QRect(x1, y1 + h - cs // 6, w, cs // 6),
-                             Qt.AlignmentFlag.AlignCenter, cell["author"][:10])
+            painter.drawText(QRect(x1, y1 + h * 4 // 5, w, h // 5),
+                             Qt.AlignmentFlag.AlignCenter, cell["author"][:12])
+
         else:
             bg = QColor(GRID_EVEN) if (row + col) % 2 == 0 else QColor(GRID_ODD)
             painter.setBrush(QBrush(bg))
@@ -316,9 +308,7 @@ class CityGrid(QWidget):
         painter.drawRect(ox + col * cs + 2, oy + row * cs + 2, cs - 4, cs - 4)
 
 
-# =============================================================
-# JANELA PRINCIPAL
-# =============================================================
+# Janela principal
 
 class MainWindow(QMainWindow):
     def __init__(self, author: str):
@@ -328,7 +318,7 @@ class MainWindow(QMainWindow):
         self.grid_state      = [[None] * SIZE for _ in range(SIZE)]
         self.selected_struct = STRUCT_NAMES[0]
 
-        self.setWindowTitle("Cidade Colaborativa")
+        self.setWindowTitle("GridCity")
         self.setStyleSheet(f"background-color: {BG_MAIN};")
 
         # Rede
@@ -343,12 +333,9 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
 
-        self.setMinimumSize(SIZE * CELL + 310, SIZE * CELL + 80)
-        self.resize(1050, 810)
+        self.setFixedSize(1050, 810)
 
-    # =========================================================
-    # CONSTRUÇÃO DA UI
-    # =========================================================
+    # Construção da UI
 
     def _build_ui(self):
         root = QWidget()
@@ -375,7 +362,7 @@ class MainWindow(QMainWindow):
         lay = QHBoxLayout(hdr)
         lay.setContentsMargins(22, 0, 22, 0)
 
-        title = QLabel("🏙️  Cidade Colaborativa")
+        title = QLabel("🏙️  GridCity")
         title.setFont(QFont("Helvetica", 20, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {TEXT_LIGHT}; background: transparent;")
         lay.addWidget(title)
@@ -419,7 +406,7 @@ class MainWindow(QMainWindow):
         lay.addWidget(name_lbl)
         lay.addWidget(self._line())
 
-        # Seletor de estrutura (botões-card)
+        # Seletor de estrutura
         self._section(lay, "ESTRUTURA")
         self._btn_group = QButtonGroup()
         self._btn_group.setExclusive(True)
@@ -513,9 +500,8 @@ class MainWindow(QMainWindow):
         line.setStyleSheet(f"background-color: {DIVIDER}; border: none;")
         return line
     
-    # =========================================================
-    # EVENTOS DO USUÁRIO
-    # =========================================================
+
+    # Eventos do usuário
 
     def _on_left_click(self, row, col):
         cell = self.grid_state[row][col]
@@ -537,9 +523,7 @@ class MainWindow(QMainWindow):
         self.last_action = {"op": "REMOVE", "row": row, "col": col}
         self.net.send(protocol.create_remove(row, col))
 
-    # =========================================================
-    # CALLBACKS DE REDE
-    # =========================================================
+    # Callbacks de rede
 
     def _on_state_updated(self, state):
         self.grid_state = state
@@ -595,9 +579,7 @@ class MainWindow(QMainWindow):
         self._log.insertHtml(f"<p style='margin:0; padding:2px 0'>{text}</p>")
 
 
-# =============================================================
-# MAIN
-# =============================================================
+# main
 
 def main():
     app = QApplication(sys.argv)
