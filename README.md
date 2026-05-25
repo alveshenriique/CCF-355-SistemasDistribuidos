@@ -14,7 +14,7 @@ O sistema segue o modelo **cliente-servidor TCP centralizado**:
 
 **Servidor**
 - Aceita conexões de múltiplos clientes, criando uma thread por conexão
-- Gerencia o estado global da grade 10×10 com `threading.Lock`
+- Gerencia o estado global da grade 7x7 com `threading.Lock`
 - Valida operações de PLACE e REMOVE
 - Propaga atualizações para todos os clientes via broadcast
 - Persiste o mapa em `cidade.db` (SQLite)
@@ -50,7 +50,7 @@ GridCity/
 ├── src/
 │   ├── server/
 │   │   ├── server.py            # Aceita conexões, cria 1 thread por cliente
-│   │   ├── state_manager.py     # Grade 10×10, SQLite, threading.Lock
+│   │   ├── state_manager.py     # Grade 7x7, SQLite, threading.Lock
 │   │   ├── client_handler.py    # Processa mensagens e faz broadcast
 │   │   └── models/
 │   │       └── structure.py     # Modelo de estrutura (tipo, autor, horário)
