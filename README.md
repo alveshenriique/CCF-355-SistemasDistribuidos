@@ -2,7 +2,7 @@
 
 ## Descrição
 
-O **GridCity** é um sistema distribuído colaborativo onde múltiplos usuários se conectam a um servidor central via TCP e constroem uma cidade juntos em uma grade 10×10. Cada célula da grade pode receber uma estrutura urbana (Casa, Estrada, Hospital, etc.), e todas as alterações são sincronizadas em tempo real para todos os clientes conectados.
+O **GridCity** é um sistema distribuído colaborativo onde múltiplos usuários se conectam a um servidor central via TCP e constroem uma cidade juntos em uma grade 7x7. Cada célula da grade pode receber uma estrutura urbana (Casa, Estrada, Hospital, etc.), e todas as alterações são sincronizadas em tempo real para todos os clientes conectados.
 
 O estado da cidade é persistido em banco de dados SQLite, garantindo que o mapa seja restaurado mesmo após reinicializações do servidor.
 
@@ -29,7 +29,7 @@ O sistema segue o modelo **cliente-servidor TCP centralizado**:
 ## Funcionalidades
 
 - Login com nome de usuário
-- Visualização da grade 10×10 em tempo real
+- Visualização da grade 7x7 em tempo real
 - Colocação de estruturas em células vazias
 - Remoção de estruturas pelo autor original
 - Exibição do número de usuários conectados
