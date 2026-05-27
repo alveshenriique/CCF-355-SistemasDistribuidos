@@ -140,7 +140,7 @@ make client
 
 > Para simular múltiplos usuários, abra mais terminais e execute `make client` em cada um.
 
-### Resetar o mapa (opcional)
+### Resetar o mapa
 
 ```bash
 rm cidade.db
