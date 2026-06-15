@@ -165,9 +165,9 @@ Partes 3 e 4 do trabalho prático — implementação com API de Sockets (visão
 
 ## Autores
 
-- Henrique Alves Campos — Protocolo e Comunicação
-- Henrique de Souza Campos — Servidor e Persistência
-- Heron Fillipe Silveira Santos — Interface Gráfica
+- Henrique Alves Campos
+- Henrique de Souza Campos 
+- Heron Fillipe Silveira Santos 
 
 ---
 
