@@ -2,41 +2,12 @@
 
 ## Descrição
 
-O **GridCity** é um sistema distribuído colaborativo onde múltiplos usuários se conectam a um servidor central via TCP e constroem uma cidade juntos em uma grade 7x7. Cada célula da grade pode receber uma estrutura urbana (Casa, Estrada, Hospital, etc.), e todas as alterações são sincronizadas em tempo real para todos os clientes conectados.
+O **GridCity** é um sistema distribuído colaborativo onde múltiplos usuários constroem uma cidade juntos em uma grade 7×7. Cada célula da grade pode receber uma estrutura urbana (Casa, Estrada, Hospital, etc.), e todas as alterações são sincronizadas em tempo real para todos os clientes conectados. O estado da cidade é persistido em banco de dados SQLite.
 
-O estado da cidade é persistido em banco de dados SQLite, garantindo que o mapa seja restaurado mesmo após reinicializações do servidor.
+O projeto foi desenvolvido em duas etapas com abordagens distintas de comunicação distribuída:
 
----
-
-## Arquitetura
-
-O sistema segue o modelo **cliente-servidor TCP centralizado**:
-
-**Servidor**
-- Aceita conexões de múltiplos clientes, criando uma thread por conexão
-- Gerencia o estado global da grade 7x7 com `threading.Lock`
-- Valida operações de PLACE e REMOVE
-- Propaga atualizações para todos os clientes via broadcast
-- Persiste o mapa em `cidade.db` (SQLite)
-
-**Cliente**
-- Interface gráfica desenvolvida em PyQt6
-- Thread dedicada para comunicação com o servidor (não bloqueia a UI)
-- Recebe atualizações em tempo real via sinais Qt (`pyqtSignal`)
-
----
-
-## Funcionalidades
-
-- Login com nome de usuário
-- Visualização da grade 7x7 em tempo real
-- Colocação de estruturas em células vazias
-- Remoção de estruturas pelo autor original
-- Exibição do número de usuários conectados
-- Identificação de autor e horário de cada estrutura
-- Persistência do mapa entre sessões do servidor
-
-**Estruturas disponíveis:** Casa, Estrada, Hospital, Loja, Praça, Escola, Parque, Fábrica
+- **Parte 3** — implementação com API de Sockets TCP e protocolo JSON manual
+- **Parte 4** — reimplementação com middleware Pyro5 (RMI), visão de objetos distribuídos
 
 ---
 
@@ -45,69 +16,62 @@ O sistema segue o modelo **cliente-servidor TCP centralizado**:
 ```
 GridCity/
 │
-├── docs/                        # Enunciados do trabalho
+├── docs/                          # Documentações do trabalho
 │
-├── src/
-│   ├── server/
-│   │   ├── server.py            # Aceita conexões, cria 1 thread por cliente
-│   │   ├── state_manager.py     # Grade 7x7, SQLite, threading.Lock
-│   │   ├── client_handler.py    # Processa mensagens e faz broadcast
-│   │   └── models/
-│   │       └── structure.py     # Modelo de estrutura (tipo, autor, horário)
-│   │
-│   └── client/
-│       ├── client.py            # Ponto de entrada do cliente
-│       ├── network.py           # NetworkClient com thread e pyqtSignal
-│       ├── protocol.py          # Funções de criação de mensagens JSON
-│       └── ui.py                # LoginDialog, CityGrid (QPainter), MainWindow
+├── parte3/                        # Implementação com Sockets TCP
+│   ├── src/
+│   │   ├── server/
+│   │   │   ├── server.py          # Loop de accept, 1 thread por cliente
+│   │   │   ├── state_manager.py   # Grade 7×7, SQLite, threading.Lock
+│   │   │   ├── client_handler.py  # Processa mensagens e faz broadcast
+│   │   │   └── models/
+│   │   │       └── structure.py   # Modelo de estrutura (tipo, autor, horário)
+│   │   └── client/
+│   │       ├── client.py          # Ponto de entrada do cliente
+│   │       ├── network.py         # NetworkClient com thread e pyqtSignal
+│   │       ├── protocol.py        # Funções de criação de mensagens JSON
+│   │       └── ui.py              # LoginDialog, CityGrid, MainWindow
+│   ├── Makefile
+│   └── requirements.txt
 │
-├── requirements.txt
-├── Makefile
-└── cidade.db                    # Gerado automaticamente pelo servidor
+├── parte4/                        # Reimplementação com Pyro5 (RMI)
+│   ├── src/
+│   │   ├── server/
+│   │   │   ├── server.py          # Registra objetos remotos no Name Server
+│   │   │   ├── grid_manager.py    # Objeto remoto: grade 7×7 e SQLite
+│   │   │   ├── session_manager.py # Objeto remoto: controle de usuários
+│   │   │   └── models/
+│   │   │       └── structure.py   # Modelo de estrutura (tipo, autor, horário)
+│   │   └── client/
+│   │       ├── client.py          # Ponto de entrada do cliente
+│   │       ├── network.py         # Proxies Pyro5 e polling periódico
+│   │       └── ui.py              # LoginDialog, CityGrid, MainWindow
+│   ├── Makefile
+│   └── requirements.txt
 ```
 
 ---
 
-## Protocolo de Mensagens
+## Funcionalidades
 
-A comunicação é feita via **TCP com mensagens JSON** separadas por `\n`.
+- Login com nome de usuário
+- Visualização da grade 7×7 em tempo real
+- Colocação de estruturas em células vazias
+- Remoção de estruturas
+- Exibição dos usuários conectados
+- Identificação de autor e horário de cada estrutura
+- Persistência do mapa entre sessões do servidor
 
-### Cliente → Servidor
-
-```json
-{ "type": "JOIN", "username": "Henrique" }
-{ "type": "PLACE", "x": 3, "y": 5, "structure_type": "Casa", "author": "Henrique" }
-{ "type": "REMOVE", "x": 3, "y": 5 }
-```
-
-### Servidor → Cliente
-
-```json
-{ "type": "UPDATE", "state": [[...]] }
-{ "type": "USERS", "count": 2, "usernames": ["Henrique", "Heron"] }
-{ "type": "RESPONSE", "success": true, "message": "Estrutura alocada", "action": "PLACE", "x": 3, "y": 5, "structure_type": "Casa" }
-```
+**Estruturas disponíveis:** Casa, Estrada, Hospital, Loja, Praça, Escola, Parque, Fábrica
 
 ---
 
-## Uso de Threads
-
-| Local | Thread | Finalidade |
-|---|---|---|
-| Servidor | 1 por cliente conectado | Processar mensagens de cada cliente de forma independente |
-| Cliente | 1 thread de rede | Receber mensagens do servidor sem bloquear a interface Qt |
-
-O `StateManager` usa `threading.Lock` para proteger toda leitura e escrita na grade, evitando condições de corrida entre as threads do servidor.
-
----
-
-## Como Executar 🚀
+## Como Executar
 
 ### Requisitos do sistema
 
 - Ubuntu 22.04
 - Python 3.10 ou superior
-- Dependência de sistema:
 
 ```bash
 sudo apt-get install libxcb-cursor0
@@ -120,28 +84,59 @@ git clone https://github.com/alveshenriique/CCF-355-SistemasDistribuidos.git
 cd CCF-355-SistemasDistribuidos
 ```
 
-### 2. Instalar dependências Python
+---
+
+### Parte 3 — Sockets TCP
 
 ```bash
+cd parte3
 make install
 ```
 
-### 3. Iniciar o servidor
-
+**Terminal 1 — Servidor:**
 ```bash
 make server
 ```
 
-### 4. Iniciar o cliente (em outro terminal)
-
+**Terminal 2 — Cliente:**
 ```bash
 make client
 ```
 
 > Para simular múltiplos usuários, abra mais terminais e execute `make client` em cada um.
 
-### Resetar o mapa
+**Resetar o mapa:**
+```bash
+rm cidade.db
+```
 
+---
+
+### Parte 4 — Pyro5 (RMI)
+
+```bash
+cd parte4
+make install
+```
+
+**Terminal 1 — Name Server** (deve permanecer ativo durante toda a execução):
+```bash
+make nameserver
+```
+
+**Terminal 2 — Servidor** (iniciar somente após o Name Server estar ativo):
+```bash
+make server
+```
+
+**Terminal 3 — Cliente:**
+```bash
+make client
+```
+
+> Para simular múltiplos usuários, abra mais terminais e execute `make client` em cada um.
+
+**Resetar o mapa:**
 ```bash
 rm cidade.db
 ```
@@ -151,10 +146,11 @@ rm cidade.db
 ## Tecnologias Utilizadas
 
 - Python 3.10+
-- Sockets TCP (módulo `socket`)
-- PyQt6 (interface gráfica)
-- SQLite (persistência via módulo `sqlite3`)
-- Threading (módulo `threading`)
+- Sockets TCP — módulo `socket` (Parte 3)
+- Pyro5 — middleware RMI (Parte 4)
+- PyQt6 — interface gráfica
+- SQLite — persistência via módulo `sqlite3`
+- Threading — módulo `threading`
 
 ---
 
@@ -163,8 +159,7 @@ rm cidade.db
 Projeto desenvolvido para a disciplina de **Sistemas Distribuídos** — UFV Campus Florestal, 2026/01.
 Professora: Thais Regina de M. B. Silva
 
-Parte 3 de 4 do trabalho prático — implementação com API de Sockets (visão de processos).
-A Parte 4 utilizará RMI (visão de objetos).
+Partes 3 e 4 do trabalho prático — implementação com API de Sockets (visão de processos) e reimplementação com Pyro5 (visão de objetos).
 
 ---
 
